@@ -1,0 +1,20 @@
+Author: Collin Smith
+Description: Recursive decent parser for cs4280.  Builds a tree and prints in preorder, each level of the tree gets a double space before it prints.  For each node, it will print the label and whatever
+tokens are being stored.
+
+
+To run
+
+1. Type "make" and hit enter
+2. Type "./main inputfile" and hit enter
+3. Type "make clean" to clean
+
+
+Comments must not have spaces.  Everything else must be separated by spaces, even "end" needs a space after it.  Numbers must be non-zero but can be
+positive or negative and have decimal.  
+
+I also went back and fixed a couple issues with my scanner.  One issue caused a seg fault.  The other issue was with relational operators
+not being recognized.  Added comments with name and date in main.  I've added test programs which are nearly identical to the test programs posted in canvas, only difference is that I removed spaces from the comments and added a space at the end of "end" keyword.  
+
+Other issues: I wanted to make a productions.c and production.h file, but due to the architechture and the way I wrote scanner and testScanner I struggled to get it to work.  I wrote production functions in testScanner.c.  If I had more time I would restructure it with a productions.c/h.   
+

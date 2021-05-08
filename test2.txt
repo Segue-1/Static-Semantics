@@ -1,0 +1,17 @@
+$$p3g2$$ 
+data z := 321 ; 
+data b := 567 ; 
+data r := 532 ; 
+main 
+begin 
+loop [ y => z ] 
+  begin 
+  data x := 3 ; 
+  data t := 6 ; 
+     begin 
+     data z := 321 ; 
+     proc x ; 
+     end 
+  end ; 
+  outter x ; 
+end 

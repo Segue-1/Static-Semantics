@@ -1,0 +1,9 @@
+$$p2g4$$ 
+data z := 321 ; 
+main 
+begin 
+data y := 5 ; 
+loop [ y => z ] 
+    assign x = y ; ; 
+outter x ; 
+end 
