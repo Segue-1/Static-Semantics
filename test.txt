@@ -1,8 +1,17 @@
-$$p3g1$$ 
-data x := 5 ; 
+$$global_redeclared_in_global$$ 
+data z := 321 ; 
+data b := 567 ; 
+data z := 532 ; 
 main 
 begin 
-data y := 67 ; 
-outter y ; 
-assign x := y ; 
+data plumber := 34 ; 
+loop [ y => z ] 
+  begin 
+  data x := 3 ; 
+  data t := 6 ; 
+     begin 
+     proc x ; 
+     end 
+  end ; 
+  outter x ; 
 end 

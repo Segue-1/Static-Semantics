@@ -1,9 +1,24 @@
-$$p2g4$$ 
+$$local_redeclared_in_different_local$$ 
 data z := 321 ; 
+data b := 567 ; 
+data q := 532 ; 
 main 
 begin 
-data y := 5 ; 
+data x := 6 ; 
+data Ldsf := 123 ; 
+data Rme := 122 ; 
+data plumber := 34 ; 
 loop [ y => z ] 
-    assign x = y ; ; 
-outter x ; 
+  begin 
+  data x := 3 ; 
+  data Mer := 13 ; 
+  data yellow := 32 ; 
+  data plumber := 122 ;  
+     begin 
+     proc z ; 
+     proc b ; 
+     proc q ; 
+     end 
+  end ; 
+  outter x ; 
 end 

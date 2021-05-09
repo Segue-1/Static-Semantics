@@ -1,14 +1,19 @@
-$$p2g5$$ 
+$$tests_scope_of_first_begin$$ 
 data _z := 321 ; 
 data y := 567 ; 
 main 
 begin 
-data y := 5 ; 
-loop [ y => z ] 
+data x := 1 ; 
+loop [ _z => y ] 
   begin 
-  data z := 3 ; 
+  data y := 3 ; 
+  data x := 5 ; 
+  data y := 6 ; 
+  proc _z ; 
+  void z ; 
      begin 
-     proc x ; 
+     data Vws := 1 ; 
+     void y ; 
      end 
   end ; 
 outter x ; 

@@ -4,5 +4,5 @@ data b := 6 ;
 data c := 7 ; 
 main 
 begin 
-    outter ( 2 - 3 / 5 * 7 + * 11 ) ; 
+    outter ( 2 - 3 / 5 * 7 + * c ) ; 
 end 

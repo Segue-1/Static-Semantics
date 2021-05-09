@@ -1,7 +1,17 @@
-$$p2g3$$ 
-data x := 5 ; 
+$$local_redeclared_in_local$$ 
+data z := 321 ; 
+data b := 567 ; 
+data q := 532 ; 
 main 
 begin 
-data y := 67 ; 
-outter y ; 
+data plumber := 34 ; 
+loop [ y => z ] 
+  begin 
+  data x := 3 ; 
+  data x := 6 ; 
+     begin 
+     proc x ; 
+     end 
+  end ; 
+  outter x ; 
 end 

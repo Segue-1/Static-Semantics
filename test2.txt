@@ -1,15 +1,15 @@
-$$p3g2$$ 
+$$global_redeclared_in_local$$ 
 data z := 321 ; 
 data b := 567 ; 
-data r := 532 ; 
+data q := 532 ; 
 main 
 begin 
+data plumber := 34 ; 
 loop [ y => z ] 
   begin 
   data x := 3 ; 
-  data t := 6 ; 
+  data q := 6 ; 
      begin 
-     data z := 321 ; 
      proc x ; 
      end 
   end ; 

@@ -33,7 +33,7 @@ struct node_t {
 
 
 void statSem(char * input);
-struct node_t* program(struct Token* token, char * str, int * left, int * right, int * line_number, struct token_Stack* globals_stack, struct token_Stack* locals_stack);
+struct node_t* program(struct Token* token, char * str, int * left, int * right, int * line_number, struct token_Stack* globals_stack, struct token_Stack* locals_stack, struct token_Stack* used_stack, struct token_Stack* used_locals_stack);
 struct node_t* block(struct Token* token, char * str, int * left, int * right, int * line_number);
 struct node_t* vars(struct Token* token, char * str, int * left, int * right, int * line_number);
 struct node_t* expr(struct Token* token, char * str, int * left, int * right, int * line_number);
@@ -61,7 +61,9 @@ struct Token next_Token(char * str, int * left, int * right, int * line_number);
 void calc_depth(struct node_t* node, int depth);
 void printPreorder(struct node_t* node);
 void check_vars(struct node_t* node,  struct token_Stack* token_Stack);
-void check_local_vars(struct node_t* node, struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack);
+void gen_usedStack(struct node_t* node, struct token_Stack* token_Stack);
+void check_local_vars(struct node_t* node, struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack, struct token_Stack* used_stack, struct token_Stack* used_locals_stack, int * local_varCount);
 void process_stack(struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack);
+void process_used_local(struct token_Stack* token_Stack, int * varCount, struct token_Stack* used_stack, struct token_Stack* globals_stack, int * local_varCount);
 
 #endif

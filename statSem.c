@@ -19,6 +19,9 @@ void statSem(char * input) {
 	struct node_t* root;
 	struct token_Stack * globals_stack; 
 	struct token_Stack * locals_stack; 
+	struct token_Stack * used_stack; 
+	struct token_Stack * used_locals_stack; 
+
 
 
 	//const char *token_Types[] = { "operator/delim_tK" , "identifier_tK" , "number_tK" , "EOF_tK", "keyword_tK" };
@@ -27,11 +30,20 @@ void statSem(char * input) {
 	// Get first token
 	token = scanner(input, left_ptr, right_ptr, line_numberPtr);
 
+	// Stack of global declarations
+	globals_stack = createStack(100);
+
+	// Stack of local declarations
+	locals_stack = createStack(100);
+
+	// Used variables within entire program
+	used_stack = createStack(100);
+
+	// Used variables within a block
+	used_locals_stack = createStack(100);
 
 	// Calls program, will recursively parse tokens
-	globals_stack = createStack(100);
-	locals_stack = createStack(100);
-	root = program(&token, input, left_ptr, right_ptr, line_numberPtr, globals_stack, locals_stack);
+	root = program(&token, input, left_ptr, right_ptr, line_numberPtr, globals_stack, locals_stack, used_stack, used_locals_stack);
 
 	// Calculators levels of nodes then prints them with preorder traversal
 	calc_depth(root, 0);
@@ -52,7 +64,7 @@ void statSem(char * input) {
 
 
 
-struct node_t* program(struct Token* token, char * str, int * left, int * right, int * line_number, struct token_Stack* globals_stack, struct token_Stack* locals_stack){
+struct node_t* program(struct Token* token, char * str, int * left, int * right, int * line_number, struct token_Stack* globals_stack, struct token_Stack* locals_stack, struct token_Stack* used_stack, struct token_Stack* used_locals_stack){
 
 	char label[] = "program";
 	struct node_t* node;
@@ -69,21 +81,19 @@ struct node_t* program(struct Token* token, char * str, int * left, int * right,
 	// Call vars on left child and check globals in vars (before main)
 	node->left_child = vars(token, str, left, right, line_number);
 	check_vars(node->left_child, globals_stack);
+
+	
 	int i;
 
-
-	for (i = 0; i <= globals_stack->top; i++) {
-		printf("globals stack: %s\n", globals_stack->array[i].instance);
-	}
 	// Check for duplicate global declarations
 	int j;
 	if (!isEmpty(globals_stack)) {
 		for (i = 0; i <= globals_stack->top - 1; i++) {
 			for (j = i + 1; j <= globals_stack->top; j++) {
 				if (strcmp(globals_stack->array[i].instance, globals_stack->array[j].instance) == 0) {
-					printf("Duplicate in global scope\n");
+					printf("Error: Duplicate in global scope\n");
 					printf("Identifier %s ", globals_stack->array[i].instance);
-					printf("first declared on line %d, second on line %d\n", globals_stack->array[i].line_number + 1, globals_stack->array[j].line_number + 1);
+					printf("first declared on line %d, redeclared on line %d\n", globals_stack->array[i].line_number + 1, globals_stack->array[j].line_number + 1);
 					exit(0);
 				}
 			}
@@ -101,10 +111,23 @@ struct node_t* program(struct Token* token, char * str, int * left, int * right,
 	// Call block on middle child
 	node->middle_child = block(token, str, left, right, line_number);
 
+
+	// Used for maintaining stack
 	int * varCount = malloc(sizeof(int));
+	int * local_varCount = malloc(sizeof(int));
 	(*varCount) = 0;
+	(*local_varCount) = 0;
+
+
+	// Build a stack of variables used after first block
+	gen_usedStack(node->middle_child, used_stack);
+
+
 	// Check globals in block (after main)
-	check_local_vars(node->middle_child, locals_stack, varCount, globals_stack);
+	check_local_vars(node->middle_child, locals_stack, varCount, globals_stack, used_stack, used_locals_stack, local_varCount);
+
+
+
 
 
 	// Final check for globals in local scopes
@@ -114,10 +137,24 @@ struct node_t* program(struct Token* token, char * str, int * left, int * right,
 			d = find(locals_stack, globals_stack->array[i].instance);
 			if (d != -1) {
 				printf("Error: identifier %s declared on line %d\n", globals_stack->array[i].instance, globals_stack->array[i].line_number + 1);
-				printf("Previously declared on line %d\n", locals_stack->array[(locals_stack->top - d) + 1].line_number + 1);
+				printf("Redeclared on line %d\n", locals_stack->array[(locals_stack->top - d) + 1].line_number + 1);
+				exit(0);
 			}  
 		}
 	}
+
+	if (!isEmpty(used_stack)) {
+		for (i = 0; i <= globals_stack->top; i++) {		
+			d = find(used_stack, globals_stack->array[i].instance);
+			if (d == -1) {
+				printf("Error: identifier %s declared on line %d\n", globals_stack->array[i].instance, globals_stack->array[i].line_number + 1);
+				printf("Declared but never used\n");
+				exit(0);
+			}  
+		}
+	}
+
+	//process_used_local_final(locals_stack, varCount, used_stack, globals_stack, local_varCount);
 
 
 	return node;
@@ -141,7 +178,6 @@ struct node_t* block(struct Token* token, char * str, int * left, int * right, i
 		printf("Error (block): Expecting begin keyword after main\n");
 		exit(0);
 	}
-
 
 
 	// Call vars on left child
@@ -171,7 +207,7 @@ struct node_t* vars(struct Token* token, char * str, int * left, int * right, in
 	struct node_t* node;	
 
 
-	// If lookahead is not data, return
+	// If token instance is not data, return
 	if (strcmp(token->instance, "data") != 0){
 		return NULL;
 	}
@@ -204,7 +240,7 @@ struct node_t* vars(struct Token* token, char * str, int * left, int * right, in
 		(*token) = scanner(str, left, right, line_number);	
 	}
 	else {
-		printf("Error (vars): Expecting identifier after =\n");
+		printf("Error (vars): Expecting identifier after :=\n");
 		exit(0);
 	}
 
@@ -1017,14 +1053,8 @@ void printPreorder(struct node_t* node){
 void check_vars(struct node_t* node, struct token_Stack* token_Stack){
 	
 	if (node != NULL) {
-		if (node->tkflg1 && node->tkflg2 == 1 && node->tkflg3 == 1) {
+		if (node->tkflg1 == 1 && node->tkflg2 == 1 && node->tkflg3 == 1) {
 			if (strcmp(node->token.instance, "data") == 0) {
-				//if (find(token_Stack, node->second_token.instance) >= 0) {
-					//int d = find(token_Stack, node->second_token.instance);
-					//printf("Error: identifier %s declared on line %d\n", node->second_token.instance, node->second_token.line_number + 1);
-					//printf("Previously declared on line %d\n", token_Stack->array[(d - token_Stack->top)].line_number);
-					//exit(0);
-				//}
 				push(token_Stack,node->second_token); 
 			}
 
@@ -1039,72 +1069,208 @@ void check_vars(struct node_t* node, struct token_Stack* token_Stack){
 }
 
 
+// Recursive function that builds stack for used identifiers throughout entire program
+void gen_usedStack(struct node_t* node, struct token_Stack* token_Stack){
+	
+	if (node != NULL) {
+		if (node->tkflg1 == 1 && node->tkflg2 == 0 && node->tkflg3 == 0) {
+			if (node->token.type == 1) {
+				push(token_Stack, node->token); 
+			}
+		}
+		if (node->tkflg1 == 1 && node->tkflg2 == 1 && node->tkflg3 == 0) {
+			if (node->second_token.type == 1) {
+				push(token_Stack, node->second_token); 
+			}
+		}
+
+		gen_usedStack(node->left_child, token_Stack);
+		gen_usedStack(node->middle_child, token_Stack);
+		gen_usedStack(node->right_child, token_Stack);
+		gen_usedStack(node->far_right_child, token_Stack);
+	}
+}
+
+
 // Recursive function that checks for double declarations for locals, also checks for globals redeclared locally
-void check_local_vars(struct node_t* node, struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack){
+void check_local_vars(struct node_t* node, struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack, struct token_Stack* used_stack, struct token_Stack* used_locals_stack, int * local_varCount){
 
 
 
 	
 	if (node != NULL) {
-
 		if (node->tkflg1 == 1 && node->tkflg2 == 0 && node->tkflg3 == 0){
+			if (strcmp(node->token.instance, "begin") == 0) {
+				process_used_local(token_Stack , varCount, used_locals_stack, globals_stack, local_varCount); 
+			}
+			if (strcmp(node->token.instance, "end") == 0) {
+				process_used_local(token_Stack , varCount, used_locals_stack, globals_stack, local_varCount); 
+			}
 			if (strcmp(node->token.instance, "begin") == 0 && (*varCount) > 0) {
 				process_stack(token_Stack, varCount, globals_stack);
 			}
+			if (node->token.type == 1) {
+				(*local_varCount)++;
+				push(used_locals_stack, node->token); 
+			}
+		}
+		if (node->tkflg1 == 1 && node->tkflg2 == 1 && node->tkflg3 == 0) {
+			if (node->second_token.type == 1) {
+				(*local_varCount)++;
+				push(used_locals_stack, node->second_token); 				
+			}
 		}	
-
 		if (node->tkflg1 == 1 && node->tkflg2 == 1 && node->tkflg3 == 1) {
 			if (strcmp(node->token.instance, "data") == 0) {
 				(*varCount)++;
-				push(token_Stack, node->second_token); 
-				printf("PUSH: %s\n", node->second_token.instance);		
+				push(token_Stack, node->second_token); 		
 
 			}
 		}
 
-		check_local_vars(node->left_child, token_Stack, varCount, globals_stack);
-		check_local_vars(node->middle_child, token_Stack, varCount, globals_stack);
-		check_local_vars(node->right_child, token_Stack, varCount, globals_stack);
-		check_local_vars(node->far_right_child, token_Stack, varCount, globals_stack);
+		check_local_vars(node->left_child, token_Stack, varCount, globals_stack, used_stack, used_locals_stack, local_varCount);
+		check_local_vars(node->middle_child, token_Stack, varCount, globals_stack, used_stack, used_locals_stack, local_varCount);
+		check_local_vars(node->right_child, token_Stack, varCount, globals_stack, used_stack, used_locals_stack, local_varCount);
+		check_local_vars(node->far_right_child, token_Stack, varCount, globals_stack, used_stack, used_locals_stack, local_varCount);
 	}
 
 }
+
 
 // Find duplicates and pop tokens for each local scope
 void process_stack(struct token_Stack* token_Stack, int * varCount, struct token_Stack* globals_stack) {
 
 	int i;
 	int d = -1;
+
+
+	// Find duplicates within local scope
 	if (!isEmpty(token_Stack) && (*varCount) > 0) {
 		int j;
 		for (i = 0; i <= token_Stack->top - 1; i++) {
 			for (j = i + 1; j <= token_Stack->top; j++) {
 				if (strcmp(token_Stack->array[i].instance, token_Stack->array[j].instance) == 0) {
-					printf("Duplicate in local scope\n");
+					printf("Error: Duplicate in local scope\n");
 					printf("Identifier %s ", token_Stack->array[i].instance);
-					printf("first declared on line %d, second on line %d\n", token_Stack->array[i].line_number + 1, token_Stack->array[j].line_number + 1);
+					printf("declared on line %d, redeclared on line %d\n", token_Stack->array[i].line_number + 1, token_Stack->array[j].line_number + 1);
 					exit(0);
 				}
 			}
 		}
 	}
 
+
+	// Find redeclaration of a global variable in some local scope
 	if (!isEmpty(globals_stack)) {
 		for (i = 0; i <= globals_stack->top; i++) {
 			d = find(token_Stack, globals_stack->array[i].instance);
 			if (d != -1) {
 				printf("Error: identifier %s declared on line %d\n", globals_stack->array[i].instance, globals_stack->array[i].line_number + 1);
-				printf("Previously declared on line %d\n", token_Stack->array[(token_Stack->top - d) + 1].line_number + 1);
+				printf("Redeclared on line %d\n", token_Stack->array[(token_Stack->top - d) + 1].line_number + 1);
+				exit(0);
 			}  
 		}
 	}
 
-	for (i = 0; i < (*varCount); i++) {
-		struct Token * peek_tk;
-		peek_tk = peek(token_Stack);
-		printf("POP: %s\n", peek_tk->instance);
+
+	while ((*varCount) > 0) {
 		pop(token_Stack);
+		(*varCount)--;
 	}
 
 }
+
+
+// Find duplicates and pop tokens for each local scope
+void process_used_local(struct token_Stack* token_Stack, int * varCount, struct token_Stack* used_locals_stack, struct token_Stack* globals_stack, int * local_varCount) {
+
+	int fflg = 1;
+	int i;
+	int d;
+
+	for (i = 0; i <= used_locals_stack->top; i++){
+		printf("used locals: %s\n", used_locals_stack->array[i].instance);
+	}
+	for (i = 0; i <= token_Stack->top; i++){
+		printf("token_Stack: %s\n", token_Stack->array[i].instance);
+	}
+	for (i = 0; i <= globals_stack->top; i++){
+		printf("globals_stack: %s\n", globals_stack->array[i].instance);
+	}
+
+	// Find unused variables in local
+	if (!isEmpty(used_locals_stack)) {
+		for (i = 0; i <= used_locals_stack->top; i++) {
+			d = find(token_Stack, used_locals_stack->array[i].instance);
+			if (d == -1) {
+				d = find(globals_stack, used_locals_stack->array[i].instance);
+				if (d == -1) {
+					printf("Error: variable %s on line %d used but not declared\n", used_locals_stack->array[i].instance, used_locals_stack->array[i].line_number + 1);
+					fflg = 0;
+				}
+			}
+		}
+
+	}
+
+	// Finds declared but not used and outputs warning.
+	if (!isEmpty(token_Stack)) {
+		for (i = 0; i <= token_Stack->top; i++) {
+			d = find(used_locals_stack, token_Stack->array[i].instance);
+			if (d == -1) {
+				printf("Warning: variable %s on line %d declared but not used\n", token_Stack->array[i].instance, token_Stack->array[i].line_number + 1);
+			}
+		}
+		
+	}
+
+
+	// Finds declared but not used and outputs warning.
+	if (!isEmpty(token_Stack)) {
+		for (i = 0; i <= token_Stack->top; i++) {
+			d = find(globals_stack, token_Stack->array[i].instance);
+			if (d != -1) {
+				printf("Error: variable %s on line %d declared locally and globally\n", token_Stack->array[i].instance, token_Stack->array[i].line_number + 1);
+				fflg = 0;
+			}
+		}
+		
+	}
+
+
+	int j;
+	if (!isEmpty(token_Stack)) {
+		for (i = 0; i <= token_Stack->top - 1; i++) {
+			for (j = i + 1; j <= token_Stack->top; j++) {
+				if (strcmp(token_Stack->array[i].instance, token_Stack->array[j].instance) == 0) {
+					printf("Error: Duplicate in local scope\n");
+					printf("Identifier %s ", token_Stack->array[i].instance);
+					printf("first declared on line %d, redeclared on line %d\n", token_Stack->array[i].line_number + 1, token_Stack->array[j].line_number + 1);
+					//exit(0);
+				}
+			}
+		}
+	}
+	
+
+	if (fflg == 0) {
+		//exit(0);
+	}
+
+	// Pop locally used tokens
+	while ((*local_varCount) > 0) {
+		pop(used_locals_stack);
+		(*local_varCount)--;
+	}
+
+	while ((*varCount) > 0) {
+		pop(token_Stack);
+		(*varCount)--;
+	}
+
+
+	printf("\n");
+
+}
+
 
